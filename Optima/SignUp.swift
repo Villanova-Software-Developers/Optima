@@ -2,15 +2,10 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 
-class AppDelegate: NSObject, UIApplicationDelegate {
-  func application(_ application: UIApplication,
-                   didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-    FirebaseApp.configure()
-    return true
-  }
-}
 
-struct ContentView: View {
+struct SignUp: View {
+    @Environment(\.dismiss) private var dismiss
+
     @State private var email: String = ""
     @State private var password: String = ""
     @State private var FullName: String = ""
@@ -119,7 +114,7 @@ struct ContentView: View {
             return (isValid, errors, validItems)
         }
         
-        func signUp() {
+    func signUp() {
             // Validate password
             let validation = validatePassword(password)
             
@@ -141,9 +136,14 @@ struct ContentView: View {
                     errorMessage = ""
                     passwordErrors = []
                     validRequirements = []
+                    
+                    // Navigate back to sign in
+                    dismiss()
                 }
             }
         }
+
+
         
         // Add this to your body view where you want to display the requirements
         var passwordRequirementsView: some View {
@@ -179,16 +179,3 @@ struct ContentView: View {
     
 }
 
-@main
-struct OptimaApp: App {
-  // register app delegate for Firebase setup
-  @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
-
-  var body: some Scene {
-    WindowGroup {
-      NavigationView {
-        ContentView()
-      }
-    }
-  }
-}

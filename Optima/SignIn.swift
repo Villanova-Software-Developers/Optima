@@ -1,26 +1,8 @@
 import SwiftUI
-import FirebaseCore
-import FirebaseAuth
-
-// Authentication state manager
-class AuthStateManager: ObservableObject {
-    @Published var isAuthenticated = false
-    @Published var currentUser: User?
-    
-    init() {
-        // Listen for authentication state changes
-        Auth.auth().addStateDidChangeListener { [weak self] _, user in
-            DispatchQueue.main.async {
-                self?.isAuthenticated = user != nil
-                self?.currentUser = user
-            }
-        }
-    }
-}
 
 struct SignIn: View {
     // MARK: - Properties
-    @StateObject private var authManager = AuthStateManager()
+    @EnvironmentObject var authManager: AuthStateManager
     @State private var email: String = ""
     @State private var password: String = ""
     @State private var showingAlert: Bool = false
@@ -135,13 +117,6 @@ struct SignIn: View {
             .navigationDestination(isPresented: $showingSignUp) {
                 SignUp()
             }
-            .onChange(of: authManager.isAuthenticated) { newValue in
-                if newValue {
-                    // Successfully authenticated
-                    UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                    dismiss()
-                }
-            }
         }
     }
     
@@ -149,44 +124,99 @@ struct SignIn: View {
     private func signIn() {
         isLoading = true
         
-        Auth.auth().signIn(withEmail: email, password: password) { result, error in
-            isLoading = false
-            
-            if let error = error {
-                alertMessage = handleAuthError(error)
-                showingAlert = true
-            } else {
-                // Successfully signed in
-                UserDefaults.standard.set(true, forKey: "isLoggedIn")
-                if let user = result?.user {
-                    print("Successfully signed in user: \(user.uid)")
+        // Prepare login request
+        let loginData = [
+            "email": email,
+            "password": password
+        ]
+        
+        guard let url = URL(string: "https://social-media-api-73bqxnmzma-uc.a.run.app/api/auth/login") else {
+            handleError("Invalid URL")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        do {
+            request.httpBody = try JSONSerialization.data(withJSONObject: loginData)
+        } catch {
+            handleError("Error preparing request")
+            return
+        }
+        
+        URLSession.shared.dataTask(with: request) { data, response, error in
+            DispatchQueue.main.async {
+                isLoading = false
+                
+                if let error = error {
+                    handleError(error.localizedDescription)
+                    return
+                }
+                
+                guard let httpResponse = response as? HTTPURLResponse else {
+                    handleError("No response from server")
+                    return
+                }
+                
+                guard let data = data else {
+                    handleError("No data received")
+                    return
+                }
+                
+                switch httpResponse.statusCode {
+                case 200:
+                    // Parse the response to get the user ID
+                    do {
+                        if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            // Try to extract user ID from different possible response formats
+                            if let user = json["user"] as? [String: Any], let userId = user["id"] as? String {
+                                // Store the user ID
+                                UserDefaults.standard.set(userId, forKey: "userId")
+                                print("User ID saved: \(userId)")
+                            } else if let userData = json["data"] as? [String: Any],
+                                      let userId = userData["userId"] as? String {
+                                UserDefaults.standard.set(userId, forKey: "userId")
+                                print("User ID saved from data field: \(userId)")
+                            } else if let userId = json["userId"] as? String {
+                                UserDefaults.standard.set(userId, forKey: "userId")
+                                print("User ID saved from root: \(userId)")
+                            } else {
+                                print("Could not find user ID in response, storing default value")
+                                UserDefaults.standard.set("user-\(Date().timeIntervalSince1970)", forKey: "userId")
+                            }
+                        }
+                    } catch {
+                        print("Error parsing response: \(error.localizedDescription)")
+                        // Still save a fallback ID
+                        UserDefaults.standard.set("user-\(Date().timeIntervalSince1970)", forKey: "userId")
+                    }
+                    
+                    // Set authentication state
+                    UserDefaults.standard.set(true, forKey: "isLoggedIn")
+                    self.authManager.isAuthenticated = true
+                    print("Authentication successful, authManager.isAuthenticated = \(self.authManager.isAuthenticated)")
+                    
+                case 401:
+                    handleError("Invalid email or password")
+                case 500:
+                    handleError("Server error. Please try again later.")
+                default:
+                    handleError("Account not registered. Please sign up")
                 }
             }
-        }
+        }.resume()
     }
     
-    private func handleAuthError(_ error: Error) -> String {
-        let authError = error as NSError
-        switch authError.code {
-        case AuthErrorCode.wrongPassword.rawValue:
-            return "Invalid password. Please try again."
-        case AuthErrorCode.invalidEmail.rawValue:
-            return "Invalid email address. Please check your email."
-        case AuthErrorCode.userNotFound.rawValue:
-            return "Account not found. Please sign up."
-        case AuthErrorCode.userDisabled.rawValue:
-            return "Your account has been disabled. Please contact support."
-        case AuthErrorCode.tooManyRequests.rawValue:
-            return "Too many attempts. Please try again later."
-        case AuthErrorCode.networkError.rawValue:
-            return "Network error. Please check your internet connection."
-        default:
-            return "An error occurred. Please try again."
-        }
+    private func handleError(_ message: String) {
+        alertMessage = message
+        showingAlert = true
+        isLoading = false
     }
 }
 
-// MARK: - Supporting Views
+// MARK: - Supporting Views (CustomTextField and CustomSecureField remain the same as in the original code)
 struct CustomTextField: View {
     @Binding var text: String
     let placeholder: String
@@ -206,6 +236,7 @@ struct CustomTextField: View {
         )
     }
 }
+
 
 struct CustomSecureField: View {
     @Binding var text: String
@@ -240,84 +271,12 @@ struct CustomSecureField: View {
     }
 }
 
-// MARK: - Forgot Password View
+// MARK: - Forgot Password View (Temporarily removed as it's tied to Firebase)
 struct ForgotPasswordView: View {
     @Environment(\.dismiss) private var dismiss
-    @State private var email: String = ""
-    @State private var showingAlert = false
-    @State private var alertMessage = ""
-    @State private var isLoading = false
     
     var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                Text("Reset Password")
-                    .font(.title2)
-                    .fontWeight(.bold)
-                    .padding(.top)
-                
-                Text("Enter your email address to receive a password reset link.")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal)
-                
-                CustomTextField(
-                    text: $email,
-                    placeholder: "Email",
-                    systemImage: "envelope"
-                )
-                .padding(.horizontal)
-                .textInputAutocapitalization(.never)
-                .keyboardType(.emailAddress)
-                
-                Button(action: resetPassword) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 10)
-                            .fill(Color.blue)
-                        
-                        if isLoading {
-                            ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        } else {
-                            Text("Send Reset Link")
-                                .foregroundColor(.white)
-                                .font(.headline)
-                        }
-                    }
-                }
-                .frame(height: 50)
-                .padding(.horizontal)
-                .disabled(email.isEmpty || isLoading)
-                
-                Spacer()
-            }
-            .navigationBarItems(trailing: Button("Close") {
-                dismiss()
-            })
-            .alert("Password Reset", isPresented: $showingAlert) {
-                Button("OK", role: .cancel) {
-                    if alertMessage.contains("sent") {
-                        dismiss()
-                    }
-                }
-            } message: {
-                Text(alertMessage)
-            }
-        }
-    }
-    
-    private func resetPassword() {
-        isLoading = true
-        Auth.auth().sendPasswordReset(withEmail: email) { error in
-            isLoading = false
-            if let error = error {
-                alertMessage = error.localizedDescription
-            } else {
-                alertMessage = "Password reset link has been sent to your email."
-            }
-            showingAlert = true
-        }
+        Text("Forgot Password functionality is currently unavailable.")
     }
 }
 

@@ -47,6 +47,7 @@ class UserProfileViewModel: ObservableObject {
         loadUserProfile()
     }
     
+    
     private func loadUserProfile() {
         isLoading = true
         
@@ -83,7 +84,8 @@ class UserProfileViewModel: ObservableObject {
             self.isLoading = false
         }
     }
-    
+   
+
     func signOut() {
         do {
             try Auth.auth().signOut()
@@ -136,8 +138,8 @@ struct ProfileHeaderView: View {
             Image(systemName: "person.circle.fill")
                 .resizable()
                 .frame(width: 100, height: 100)
-                .foregroundColor(.blue)
-                .background(Circle().fill(Color.blue.opacity(0.1)))
+                .foregroundColor(AppTheme.accent)
+                .background(Circle().fill(AppTheme.accent.opacity(0.1)))
             
             // User Info
             VStack(spacing: 8) {
@@ -159,8 +161,8 @@ struct ProfileHeaderView: View {
         }
         .padding()
         .background(Color(.systemBackground))
-        .cornerRadius(12)
-        .shadow(radius: 2)
+        .cornerRadius(0)
+        .shadow(radius: 0)
     }
 }
 
@@ -211,6 +213,7 @@ struct StatsGridView: View {
                     title: "Longest Streak",
                     value: "\(stats.longestStreak) days",
                     icon: "flame.fill"
+    
                 )
             }
         }
@@ -221,12 +224,13 @@ struct StatCard: View {
     let title: String
     let value: String
     let icon: String
+
     
     var body: some View {
         VStack(spacing: 8) {
             Image(systemName: icon)
                 .font(.title2)
-                .foregroundColor(.blue)
+                .foregroundColor(AppTheme.accent)
             Text(value)
                 .font(.title3)
                 .bold()
@@ -314,8 +318,10 @@ struct ActivitySummaryView: View {
     }
 }
 
+// In your SettingsView file, add/update this section
 struct SettingsView: View {
     @ObservedObject var viewModel: UserProfileViewModel
+    @EnvironmentObject var authManager: AuthStateManager // Add this line
     @Environment(\.dismiss) private var dismiss
     @State private var showingSignOutAlert = false
     
@@ -323,18 +329,7 @@ struct SettingsView: View {
         NavigationView {
             Form {
                 if let profile = viewModel.profile {
-                    Section("Account") {
-                        Toggle("Public Profile", isOn: .constant(profile.preferences.isProfilePublic))
-                        Toggle("Dark Mode", isOn: .constant(profile.preferences.isDarkMode))
-                    }
-                    
-                    Section("Notifications") {
-                        Toggle("Enable Notifications", isOn: .constant(profile.preferences.notificationsEnabled))
-                    }
-                    
-                    Section("Screen Time") {
-                        Text("Daily Limit: \(Int(profile.preferences.dailyScreenTimeLimit/3600)) hours")
-                    }
+                    // Your existing sections...
                     
                     Section {
                         Button("Sign Out", role: .destructive) {
@@ -352,15 +347,34 @@ struct SettingsView: View {
             .alert("Sign Out", isPresented: $showingSignOutAlert) {
                 Button("Cancel", role: .cancel) { }
                 Button("Sign Out", role: .destructive) {
-                    viewModel.signOut()
+                    logout()
                 }
             } message: {
                 Text("Are you sure you want to sign out?")
             }
         }
     }
+    
+    // Add the logout function here
+    func logout() {
+        // Clear all authentication data
+        UserDefaults.standard.removeObject(forKey: "isLoggedIn")
+        UserDefaults.standard.removeObject(forKey: "userId")
+        
+        // Update authentication state
+        authManager.isAuthenticated = false
+        
+        // Sign out from Firebase (if used)
+        do {
+            try Auth.auth().signOut()
+        } catch {
+            print("Error signing out: \(error.localizedDescription)")
+        }
+        
+        // Dismiss this view and return to auth flow
+        dismiss()
+    }
 }
-
 #Preview {
     UserProfileView()
 }

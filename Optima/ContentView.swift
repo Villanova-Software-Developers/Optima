@@ -10,8 +10,6 @@ struct ContentView: View {
                     Label("Tasks", systemImage: "checklist")
                 }
                 .tag(0)
-            
-            
  
             SocialCompletionFeedView()
                 .tabItem {
@@ -24,6 +22,22 @@ struct ContentView: View {
                     Label("Profile", systemImage: "person.fill")
                 }
                 .tag(2)
+            
+            Follow()
+                .tabItem {
+                    Label("Follow", systemImage: "person.fill")
+                }
+                .tag(3)
+            GETUSER()
+                .tabItem {
+                    Label("Get User", systemImage: "person.fill")
+                }
+                .tag(4)
+            SearchUser()
+                .tabItem {
+                    Label("Search User", systemImage: "person.fill")
+                }
+                .tag(5)
         }
         .tint(AppTheme.primary)
     }

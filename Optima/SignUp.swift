@@ -202,7 +202,7 @@ struct SignUp: View {
                 errors.append(requirement)
             }
         }
-
+//filler
         if password.count >= 8 {
             validItems.append("Minimum 8 characters")
         } else {

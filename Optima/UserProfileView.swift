@@ -50,14 +50,17 @@ class UserProfileViewModel: ObservableObject {
     
     private func loadUserProfile() {
         isLoading = true
+        let userId = UserDefaults.standard.string(forKey: "userId") ?? "Default UserID"
+        let username = UserDefaults.standard.string(forKey: "username") ?? "Default Username"
+        let email = UserDefaults.standard.string(forKey: "userEmail") ?? "Default Email"
         
         // Simulate network delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
             // Sample data
             self.profile = UserProfile(
-                id: "1",
-                username: "John Doe",
-                email: "john@example.com",
+                id: userId,
+                username: username,
+                email: email,
                 totalPoints: 1250,
                 currentStreak: 7,
                 joinDate: Date().addingTimeInterval(-30*24*3600),

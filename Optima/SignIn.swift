@@ -170,21 +170,52 @@ struct SignIn: View {
                     // Parse the response to get the user ID
                     do {
                         if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                            var userId = "user-\(Date().timeIntervalSince1970)"
+                            var username = "User"
+                            
                             // Try to extract user ID from different possible response formats
-                            if let user = json["user"] as? [String: Any], let userId = user["id"] as? String {
-                                // Store the user ID
-                                UserDefaults.standard.set(userId, forKey: "userId")
-                                print("User ID saved: \(userId)")
-                            } else if let userData = json["data"] as? [String: Any],
-                                      let userId = userData["userId"] as? String {
-                                UserDefaults.standard.set(userId, forKey: "userId")
-                                print("User ID saved from data field: \(userId)")
-                            } else if let userId = json["userId"] as? String {
-                                UserDefaults.standard.set(userId, forKey: "userId")
-                                print("User ID saved from root: \(userId)")
-                            } else {
-                                print("Could not find user ID in response, storing default value")
-                                UserDefaults.standard.set("user-\(Date().timeIntervalSince1970)", forKey: "userId")
+                            if let user = json["user"] as? [String: Any] {
+                                userId = user["id"] as? String ?? userId
+                                username = user["username"] as? String ?? username
+                            } else if let userData = json["data"] as? [String: Any] {
+                                userId = userData["userId"] as? String ?? userId
+                                username = userData["username"] as? String ?? username
+                            } else if let extractedUserId = json["userId"] as? String {
+                                userId = extractedUserId
+                            }
+                            
+                            // Store user information in UserDefaults
+                            UserDefaults.standard.set(userId, forKey: "userId")
+                            UserDefaults.standard.set(username, forKey: "username")
+                            UserDefaults.standard.set(email, forKey: "userEmail")
+                            
+                            // print("User ID saved: \(userId)")
+                            // print("Username saved: \(username)")
+                            // print("Email saved: \(email)")
+                            
+                            // Create a complete user profile JSON
+                            let userProfileData: [String: Any] = [
+                                "id": userId,
+                                "username": username,
+                                "email": email,
+                                "totalPoints": 0,
+                                "currentStreak": 0,
+                                "joinDate": Date().timeIntervalSince1970,
+                                "achievements": [],
+                                "preferences": [
+                                    "isDarkMode": false,
+                                    "notificationsEnabled": true,
+                                    "dailyScreenTimeLimit": 4 * 3600,
+                                    "isProfilePublic": true
+                                ]
+                            ]
+                            
+                            // Try to save the complete user profile
+                            do {
+                                let jsonData = try JSONSerialization.data(withJSONObject: userProfileData)
+                                UserDefaults.standard.set(jsonData, forKey: "userProfile")
+                            } catch {
+                                print("Error saving user profile: \(error.localizedDescription)")
                             }
                         }
                     } catch {

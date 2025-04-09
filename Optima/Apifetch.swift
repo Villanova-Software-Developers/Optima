@@ -1,7 +1,7 @@
 import SwiftUI
+import FirebaseAuth
 
 struct Follow: View {
-    @State private var userId: String = ""
     @State private var friendId: String = ""
     
     var body: some View {
@@ -13,7 +13,15 @@ struct Follow: View {
                 .padding()
             
             Button(action: {
-                addFriend(userId: "0w0HjVHIQAMBsupgUrGJ5LPTNgL2", friendId: friendId)
+                // Check if the user is authenticated
+                if let userId = Auth.auth().currentUser?.uid {
+                    print("Current user ID: \(userId)")
+                    print("Friend ID: \(friendId)")
+                    addFriend(userId: userId, friendId: friendId)
+                } else {
+                    print("User not authenticated")
+                    // You can also trigger a sign-in process here if needed
+                }
             }) {
                 Text("Add Friend")
                     .padding()
@@ -22,11 +30,22 @@ struct Follow: View {
                     .cornerRadius(8)
             }
         }
+        .onAppear {
+            // Ensure the user is authenticated on view appearance
+            if let userId = Auth.auth().currentUser?.uid {
+                print("Authenticated as: \(userId)")
+            } else {
+                print("No user authenticated")
+            }
+        }
     }
 }
 
 func addFriend(userId: String, friendId: String) {
-    guard let url = URL(string: "https://social-media-api-73bqxnmzma-uc.a.run.app/api/friends/add") else { return }
+    guard let url = URL(string: "https://social-media-api-73bqxnmzma-uc.a.run.app/api/friends/add") else {
+        print("Invalid URL")
+        return
+    }
 
     var request = URLRequest(url: url)
     request.httpMethod = "POST"

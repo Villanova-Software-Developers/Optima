@@ -9,7 +9,6 @@ struct Follow: View {
             TextField("Enter user to follow", text: $friendId)
                 .textFieldStyle(RoundedBorderTextFieldStyle())
                 .autocorrectionDisabled(true)
-                .textInputAutocapitalization(.never)
                 .padding()
             
             Button(action: {
